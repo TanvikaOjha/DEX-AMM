@@ -84,6 +84,28 @@ contract AMMPair {
         _update(token0.balanceOf(address(this)),token1.balanceOf(address(this)));
         emit LiquidityAdded(msg.sender, amount0, amount1, liquidity);
     }
+
+
+
+    function removeLiquidity(uint256 liquidity, uint256 amount0Min, uint256 amount1Min, address to) external nonReentrant returns (uint256 amount0, uint256 amount1){
+        uint256 totalSupply = lpToken.totalSupply();
+        require(totalSupply > 0, "No liquidity");
+
+        // Your share = (your LP tokens / total LP) × reserves
+        amount0 = liquidity * reserve0 / totalSupply;
+        amount1 = liquidity * reserve1 / totalSupply;
+
+        require(amount0 >= amount0Min, "Insufficient token0 out");
+        require(amount1 >= amount1Min, "Insufficient token1 out");
+        require(amount0 > 0 && amount1 > 0, "Insufficient liquidity burned");
+
+        lpToken.burn(msg.sender, liquidity);
+        token0.transfer(to, amount0);
+        token1.transfer(to, amount1);
+
+        _update(token0.balanceOf(address(this)),token1.balanceOf(address(this)));
+        emit LiquidityRemoved(msg.sender, amount0, amount1, liquidity);
+    }
         
     
 
