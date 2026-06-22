@@ -50,13 +50,42 @@ contract AMMPair {
         uint256 _reserve1 = reserve1;
         uint256 totalSupply = lpToken.totalSupply();
 
-        //first liquidity
+        //first liquidity: use desired amount as is.
         if(_reserve0 == 0 && _reserve1 == 0) {
             (amount0, amount1) = (amount0Desired, amount1Desired);
         } else {
-            uint256 
+            //calculate optimal amount maintaining current ratio
+            uint256 amount1Optimal =   amount0Desired * _reserve1 / _reserve0;
+            if (amount1Optimal <= amount1Desired) {
+                require(amount1Optimal >= amount1Min, "Insufficient token1");
+                (amount0, amount1) = (amount0Desired, amount1Optimal);
+            } else {
+                uint256 amount0Optimal = amount1Desired * _reserve0 / _reserve1;
+                require(amount0Optimal >= amount0Min, "Insufficient token0");
+                (amount0, amount1) = (amount0Optimal, amount1Desired);
+            }
         }
+
+         //router will transfer to pair contract.
+        token0.transferFrom(msg.sender, address(this), amount0);
+        token1.transferFrom(msg.sender, address(this), amount1);
+        
+        if (totalSupply == 0) {
+            // First LP: geometric mean, lock MINIMUM_LIQUIDITY forever
+         liquidity = Math.sqrt(amount0 * amount1) - MINIMUM_LIQUIDITY;
+        lpToken.mint(address(0xdead), MINIMUM_LIQUIDITY); // lock minimum
+        } else {
+            // Proportional to existing pool
+            liquidity = Math.min(amount0 * totalSupply / _reserve0,amount1 * totalSupply / _reserve1);
+        }
+        require(liquidity > 0, "Insufficient liquidity minted");
+        lpToken.mint(to, liquidity);
+
+        _update(token0.balanceOf(address(this)),token1.balanceOf(address(this)));
+        emit LiquidityAdded(msg.sender, amount0, amount1, liquidity);
     }
+        
+    
 
 
 
