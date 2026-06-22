@@ -57,4 +57,49 @@ contract AMMPair {
             uint256 
         }
     }
+
+
+
+    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) public pure returns (uint256 amountOut){
+        require(amountIn > 0, "Insufficient input");
+        require(reserveIn > 0 && reserveOut > 0, "Insufficient liquidity");
+
+        uint256 amountInWithFee = amountIn * 997;
+        uint256 numerator = amountInWithFee * reserveOut;
+        uint256 denominator = (reserveIn * 1000) + amountInWithFee;
+        amountOut = numerator / denominator;
+    }
+
+    function getToken0Price() external view returns (uint256) {
+        if(reserve0 == 0) return 0;
+        return reserve1 * 1e18 /reserve0;
+    }
+    function getToken1Price() external view returns (uint256) {
+        if (reserve1 == 0) return 0;
+        return reserve0 * 1e18 / reserve1; 
+    }
+
+    function swap(address tokenIn, uint256 amountIn, uint256 amountInMin, address to, uint256 deadline) external nonReentrant returns (uint256 amountOut){
+        require(block.timestamp <=deadline, "Deadline expired");
+        require(tokenIn == address(token0) || tokenIn == address(token1), "Invalid Token");
+        require(amountIn > 0, "Zero Input");
+        require(to != address(token0) && to != address(token1), "Invalid to");
+
+        bool zeroForOne = (token == address(token0));
+        IERC20 tokenOut = zeroForOne ? token1 : token0;
+        uint256 rIn        = zeroForOne ? reserve0 : reserve1;
+        uint256 rOut       = zeroForOne ? reserve1 : reserve0;
+
+         amountOut = getAmountOut(amountIn, rIn, rOut);
+        require(amountOut >= amountOutMin, "Slippage: insufficient output");
+        require(amountOut < rOut, "Insufficient liquidity");
+
+         IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+        tokenOut.transfer(to, amountOut);
+        
+
+          _update(token0.balanceOf(address(this)), token1.balanceOf(address(this)));
+         emit Swap(msg.sender, tokenIn, amountIn, address(tokenOut), amountOut);
+
+    }
    }
