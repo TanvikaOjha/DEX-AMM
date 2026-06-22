@@ -44,5 +44,17 @@ contract AMMPair {
         reserve1 = _r1;
         emit Sync(_r0, _r1);
     }
-   
+    
+    function addLiquidty(uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address to) external nonReentrant returns(uint256 amount0, uint256 amount1, uint256 liquidity){
+        uint256 _reserve0 = reserve0;
+        uint256 _reserve1 = reserve1;
+        uint256 totalSupply = lpToken.totalSupply();
+
+        //first liquidity
+        if(_reserve0 == 0 && _reserve1 == 0) {
+            (amount0, amount1) = (amount0Desired, amount1Desired);
+        } else {
+            uint256 
+        }
+    }
    }
