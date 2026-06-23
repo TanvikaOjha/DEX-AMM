@@ -18,8 +18,17 @@ contract AMMPairTest is Test {
     uint256 constant SEED_B = 2000 ether;
 
     function setUp() public {
-        tokenA = new TestToken("Token A", "TKA");
-        tokenB = new TestToken("Token B", "TKB");
+    TestToken tempA = new TestToken("Token A", "TKA");
+    TestToken tempB = new TestToken("Token B", "TKB");
+
+    // Force tokenA to always be the lower address (token0)
+    if (address(tempA) < address(tempB)) {
+        tokenA = tempA;
+        tokenB = tempB;
+    } else {
+        tokenA = tempB;
+        tokenB = tempA;
+    }
         pair   = new AMMPair(address(tokenA), address(tokenB));
 
         // Fund alice so she can add liquidity
@@ -133,7 +142,7 @@ contract AMMPairTest is Test {
         vm.stopPrank();
     }
 
-      // ── swap happy-path tests ────────────────────────────────────
+      //  swap happy-path tests 
 
     function test_Swap_OutputMatchesGetAmountOut() public {
         _seed();
@@ -193,3 +202,88 @@ contract AMMPairTest is Test {
         // Bob should have received some tokenA
         assertTrue(tokenA.balanceOf(bob) > 1000 ether); // had 1000 + received more
     }
+
+        //  swap revert tests
+
+    function test_Swap_RevertWhen_DeadlineExpired() public {
+        _seed();
+        vm.warp(block.timestamp + 1000); // move time forward
+        vm.startPrank(bob);
+        tokenA.approve(address(pair), 10 ether);
+        vm.expectRevert("Deadline expired");
+        pair.swap(address(tokenA), 10 ether, 0, bob, block.timestamp - 1); // past deadline
+        vm.stopPrank();
+    }
+
+    function test_Swap_RevertWhen_SlippageExceeded() public {
+        _seed();
+        vm.startPrank(bob);
+        tokenA.approve(address(pair), 10 ether);
+        vm.expectRevert("Slippage: insufficient output");
+        // amountOutMin = max uint — impossible to satisfy
+        pair.swap(address(tokenA), 10 ether, type(uint256).max, bob, block.timestamp + 60);
+        vm.stopPrank();
+    }
+
+    function test_Swap_RevertWhen_InvalidToken() public {
+        _seed();
+        address randomToken = makeAddr("random");
+        vm.expectRevert("Invalid Token");
+        pair.swap(randomToken, 10 ether, 0, bob, block.timestamp + 60);
+    }
+
+    function test_Swap_RevertWhen_ZeroInput() public {
+        _seed();
+        vm.expectRevert("Zero Input");
+        pair.swap(address(tokenA), 0, 0, bob, block.timestamp + 60);
+    }
+
+    function test_Swap_CannotDrainEntireReserve() public {
+        _seed();
+        // Try to get more tokenB out than exists in the pool
+        tokenA.mint(bob, 1000000 ether);
+        vm.startPrank(bob);
+        tokenA.approve(address(pair), 1000000 ether);
+        vm.expectRevert("Slippage: insufficient output");
+        pair.swap(address(tokenA), 1000000 ether, pair.reserve1(), bob, block.timestamp + 60);
+        vm.stopPrank();
+    }
+
+   //  Fuzz tests
+    // Fuzz 1: Any valid swap amount produces a non-zero output
+    function testFuzz_AnyValidAmountProducesOutput(uint256 amountIn) public {
+        _seed();
+        amountIn = bound(amountIn, 1, 100 ether); // keep reasonable
+        uint256 out = pair.getAmountOut(amountIn, pair.reserve0(), pair.reserve1());
+        assertTrue(out > 0);
+        assertTrue(out < pair.reserve1()); // can never get more than the reserve
+    }
+
+    // Fuzz 2: k always grows after a swap (fee accrual)
+    function testFuzz_ConstantProductNeverDecreasesAfterSwap(uint256 amountIn) public {
+        _seed();
+        amountIn = bound(amountIn, 1, 50 ether);
+        uint256 kBefore = pair.reserve0() * pair.reserve1();
+        vm.startPrank(bob);
+        tokenA.mint(bob, amountIn);
+        tokenA.approve(address(pair), amountIn);
+        pair.swap(address(tokenA), amountIn, 0, bob, block.timestamp + 60);
+        vm.stopPrank();
+        assertTrue(pair.reserve0() * pair.reserve1() >= kBefore);
+    }
+
+    // Fuzz 3: Any LP holder gets proportional share back on removal
+    function testFuzz_ProportionalWithdrawal(uint8 pct) public {
+        _seed();
+        pct = uint8(bound(pct, 1, 100));
+        uint256 lp     = pair.lpToken().balanceOf(alice);
+        uint256 amount = lp * uint256(pct) / 100;
+        vm.assume(amount > 0);
+        uint256 aBefore = tokenA.balanceOf(alice);
+        vm.startPrank(alice);
+        pair.lpToken().approve(address(pair), amount);
+        pair.removeLiquidity(amount, 0, 0, alice);
+        vm.stopPrank();
+        assertTrue(tokenA.balanceOf(alice) > aBefore);
+    }
+}
