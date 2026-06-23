@@ -36,13 +36,8 @@ contract AMMRouter {
 
         // Determine pair token ordering
         bool isAToken0 = (address(pair.token0()) == tokenA);
-        (amountA, amountB, liquidity) = pair.addLiquidity(
-            isAToken0 ? amountADesired : amountBDesired,
-            isAToken0 ? amountBDesired : amountADesired,
-            isAToken0 ? amountAMin    : amountBMin,
-            isAToken0 ? amountBMin    : amountAMin,
-            to
-        );
+        (amountA, amountB, liquidity) = pair.addLiquidity(isAToken0 ? amountADesired : amountBDesired, isAToken0 ? amountBDesired : amountADesired,
+            isAToken0 ? amountAMin : amountBMin, isAToken0 ? amountBMin : amountAMin,to);
 
         // Refund any unused tokens
         uint256 refA = IERC20(tokenA).balanceOf(address(this));

@@ -45,7 +45,7 @@ contract AMMPair {
         emit Sync(_r0, _r1);
     }
     
-    function addLiquidty(uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address to) external nonReentrant returns(uint256 amount0, uint256 amount1, uint256 liquidity){
+    function addLiquidity(uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address to) external nonReentrant returns(uint256 amount0, uint256 amount1, uint256 liquidity){
         uint256 _reserve0 = reserve0;
         uint256 _reserve1 = reserve1;
         uint256 totalSupply = lpToken.totalSupply();
@@ -130,13 +130,13 @@ contract AMMPair {
         return reserve0 * 1e18 / reserve1; 
     }
 
-    function swap(address tokenIn, uint256 amountIn, uint256 amountInMin, address to, uint256 deadline) external nonReentrant returns (uint256 amountOut){
+    function swap(address tokenIn, uint256 amountIn, uint256 amountOutMin, address to, uint256 deadline) external nonReentrant returns (uint256 amountOut){
         require(block.timestamp <=deadline, "Deadline expired");
         require(tokenIn == address(token0) || tokenIn == address(token1), "Invalid Token");
         require(amountIn > 0, "Zero Input");
         require(to != address(token0) && to != address(token1), "Invalid to");
 
-        bool zeroForOne = (token == address(token0));
+        bool zeroForOne = (tokenIn == address(token0));
         IERC20 tokenOut = zeroForOne ? token1 : token0;
         uint256 rIn        = zeroForOne ? reserve0 : reserve1;
         uint256 rOut       = zeroForOne ? reserve1 : reserve0;
