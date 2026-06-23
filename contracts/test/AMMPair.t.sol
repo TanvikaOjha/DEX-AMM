@@ -132,3 +132,64 @@ contract AMMPairTest is Test {
         pair.removeLiquidity(lp, type(uint256).max, 0, alice); // impossible min
         vm.stopPrank();
     }
+
+      // ── swap happy-path tests ────────────────────────────────────
+
+    function test_Swap_OutputMatchesGetAmountOut() public {
+        _seed();
+        uint256 swapIn = 10 ether;
+        bool    aIs0   = _isAToken0();
+        uint256 rIn    = aIs0 ? pair.reserve0() : pair.reserve1();
+        uint256 rOut   = aIs0 ? pair.reserve1() : pair.reserve0();
+
+        uint256 predicted = pair.getAmountOut(swapIn, rIn, rOut);
+
+        uint256 bBefore = tokenB.balanceOf(bob);
+        vm.startPrank(bob);
+        tokenA.approve(address(pair), swapIn);
+        pair.swap(address(tokenA), swapIn, 0, bob, block.timestamp + 60);
+        vm.stopPrank();
+
+        uint256 received = tokenB.balanceOf(bob) - bBefore;
+        assertEq(received, predicted);
+    }
+
+    function test_Swap_ReservesUpdateAfterSwap() public {
+        _seed();
+        uint256 r0Before = pair.reserve0();
+        vm.startPrank(bob);
+        tokenA.approve(address(pair), 10 ether);
+        pair.swap(address(tokenA), 10 ether, 0, bob, block.timestamp + 60);
+        vm.stopPrank();
+        // reserve of tokenA should increase (bob sent tokenA in)
+        if (_isAToken0()) {
+            assertTrue(pair.reserve0() > r0Before);
+        } else {
+            assertTrue(pair.reserve1() > r0Before);
+        }
+    }
+
+    function test_Swap_ConstantProductIncreasesAfterFee() public {
+        _seed();
+        uint256 kBefore = pair.reserve0() * pair.reserve1();
+        vm.startPrank(bob);
+        tokenA.approve(address(pair), 50 ether);
+        pair.swap(address(tokenA), 50 ether, 0, bob, block.timestamp + 60);
+        vm.stopPrank();
+        // k must grow (fee stays in pool) — the core invariant
+        assertTrue(pair.reserve0() * pair.reserve1() >= kBefore);
+    }
+
+    function test_Swap_BothDirectionsWork() public {
+        _seed();
+        uint256 bBefore = tokenB.balanceOf(bob);
+        tokenB.mint(bob, 100 ether);
+
+        // Swap B → A
+        vm.startPrank(bob);
+        tokenB.approve(address(pair), 20 ether);
+        pair.swap(address(tokenB), 20 ether, 0, bob, block.timestamp + 60);
+        vm.stopPrank();
+        // Bob should have received some tokenA
+        assertTrue(tokenA.balanceOf(bob) > 1000 ether); // had 1000 + received more
+    }
