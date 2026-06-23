@@ -88,3 +88,47 @@ contract AMMPairTest is Test {
         _seed();
         assertEq(tokenA.balanceOf(alice), aliceABefore - SEED_A);
     }
+    //remove liquiidty
+
+    function test_RemoveLiquidity_BurnsLPTokens() public {
+        _seed();
+        uint256 lp = pair.lpToken().balanceOf(alice);
+        vm.startPrank(alice);
+        pair.lpToken().approve(address(pair), lp);
+        pair.removeLiquidity(lp, 0, 0, alice);
+        vm.stopPrank();
+        assertEq(pair.lpToken().balanceOf(alice), 0);
+    }
+
+    function test_RemoveLiquidity_ReturnsTokensToProvider() public {
+        _seed();
+        uint256 aBalBefore = tokenA.balanceOf(alice);
+        uint256 lp = pair.lpToken().balanceOf(alice);
+        vm.startPrank(alice);
+        pair.lpToken().approve(address(pair), lp);
+        pair.removeLiquidity(lp, 0, 0, alice);
+        vm.stopPrank();
+        // Alice should get back almost all her tokens (tiny amount locked in MINIMUM_LIQUIDITY)
+        assertTrue(tokenA.balanceOf(alice) > aBalBefore);
+    }
+
+    function test_RemoveLiquidity_PartialWithdrawal() public {
+        _seed();
+        uint256 lp = pair.lpToken().balanceOf(alice);
+        vm.startPrank(alice);
+        pair.lpToken().approve(address(pair), lp / 2);
+        pair.removeLiquidity(lp / 2, 0, 0, alice);
+        vm.stopPrank();
+        // Alice should still have half her LP tokens
+        assertApproxEqAbs(pair.lpToken().balanceOf(alice), lp / 2, 1);
+    }
+
+    function test_RemoveLiquidity_RevertWhen_MinimumNotMet() public {
+        _seed();
+        uint256 lp = pair.lpToken().balanceOf(alice);
+        vm.startPrank(alice);
+        pair.lpToken().approve(address(pair), lp);
+        vm.expectRevert("Insufficient token0 out");
+        pair.removeLiquidity(lp, type(uint256).max, 0, alice); // impossible min
+        vm.stopPrank();
+    }
