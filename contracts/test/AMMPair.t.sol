@@ -18,8 +18,8 @@ contract AMMPairTest is Test {
     uint256 constant SEED_B = 2000 ether;
 
     function setUp() public {
-    TestToken tempA = new TestToken("Token A", "TKA");
-    TestToken tempB = new TestToken("Token B", "TKB");
+    TestToken tempA = new TestToken("TokenA", "TKA");
+    TestToken tempB = new TestToken("TokenB", "TKB");
 
     // Force tokenA to always be the lower address (token0)
     if (address(tempA) < address(tempB)) {
@@ -240,12 +240,13 @@ contract AMMPairTest is Test {
 
     function test_Swap_CannotDrainEntireReserve() public {
         _seed();
+        uint256 targetOut = pair.reserve1();
         // Try to get more tokenB out than exists in the pool
         tokenA.mint(bob, 1000000 ether);
         vm.startPrank(bob);
         tokenA.approve(address(pair), 1000000 ether);
         vm.expectRevert("Slippage: insufficient output");
-        pair.swap(address(tokenA), 1000000 ether, pair.reserve1(), bob, block.timestamp + 60);
+        pair.swap(address(tokenA), 1000000 ether, targetOut, bob, block.timestamp + 60);
         vm.stopPrank();
     }
 

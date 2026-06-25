@@ -5,10 +5,26 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./LPToken.sol";
 
+library UQ112x112 {
+    uint224 constant Q112 = 2**112;
+    function encode(uint112 y) internal pure returns (uint224 z) {
+        z = uint224(y) * Q112;
+    }
+    function uqdiv(uint224 x, uint112 y) internal pure returns (uint224 z) {
+        z = x / uint224(y);
+    }
+}
+
 //core liquidity pool
 
 
 contract AMMPair {
+    using UQ112x112 for uint224;
+
+    uint256 public price0CumulativeLast; // price of token0 in token1, accumulated × seconds
+    uint256 public price1CumulativeLast; // price of token1 in token0, accumulated × seconds
+    uint32  public blockTimestampLast;   // timestamp of last update
+
     IERC20 public immutable token0;
     IERC20 public immutable token1;
     LPToken public immutable lpToken;
@@ -39,12 +55,30 @@ contract AMMPair {
         lpToken = new LPToken("AMM LP Token", "ALP");
     }
 
-    function _update(uint256 _r0, uint256 _r1) private {
-        reserve0 = _r0;
-        reserve1 = _r1;
-        emit Sync(_r0, _r1);
+   function _update(uint256 _r0, uint256 _r1) private {
+    // ── TWAP accumulation ─────────────────────────────────────
+    uint32  blockTs      = uint32(block.timestamp);
+    uint32  timeElapsed  = blockTs - blockTimestampLast;
+
+    // Only accumulate if time has passed and pool has reserves
+    // (prevents division by zero on first deposit)
+    if (timeElapsed > 0 && reserve0 > 0 && reserve1 > 0) {
+        // price0 = reserve1 / reserve0 (how much token1 per token0)
+        // Stored as UQ112x112 × timeElapsed to prevent overflow
+        price0CumulativeLast +=
+            uint256(UQ112x112.encode(uint112(reserve1)).uqdiv(uint112(reserve0)))
+            * timeElapsed;
+
+        price1CumulativeLast +=
+            uint256(UQ112x112.encode(uint112(reserve0)).uqdiv(uint112(reserve1)))
+            * timeElapsed;
     }
-    
+
+    reserve0           = _r0;
+    reserve1           = _r1;
+    blockTimestampLast = blockTs;
+    emit Sync(_r0, _r1);
+}
     function addLiquidity(uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address to) external nonReentrant returns(uint256 amount0, uint256 amount1, uint256 liquidity){
         uint256 _reserve0 = reserve0;
         uint256 _reserve1 = reserve1;

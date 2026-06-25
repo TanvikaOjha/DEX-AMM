@@ -13,7 +13,7 @@ contract TestTokenTest is Test {
     address bob = makeAddr("bob");
 
     function setUp() public {
-        token = new TestToken("Token Alpha", "TKA");
+        token = new TestToken("TokenA", "TKA");
     }
 
     function test_ConstructorMintsOneMillionTokens() public view{
@@ -21,7 +21,7 @@ contract TestTokenTest is Test {
     }
 
     function test_NameAndSymbol() public view {
-        assertEq(token.name(), "Token Alpha");
+        assertEq(token.name(), "TokenA");
         assertEq(token.symbol(), "TKA");
     }
     function test_MintToAddress() public {

@@ -18,9 +18,9 @@ contract AMMRouterTest is Test {
     address bob   = makeAddr("bob");
 
     function setUp() public {
-        tA = new TestToken("A","TKA");
-        tB = new TestToken("B","TKB"); 
-        tC = new TestToken("C","TKC");
+        tA = new TestToken("TokenA","TKA");
+        tB = new TestToken("TokenB","TKB"); 
+        tC = new TestToken("TokenC","TKC");
 
         factory = new AMMFactory();
         router  = new AMMRouter(address(factory));
@@ -31,8 +31,8 @@ contract AMMRouterTest is Test {
        tC.mint(address(this), 6000 ether);
 
       tA.approve(address(router), 1000 ether); 
-    tB.approve(address(router), 2000 ether);
-    router.addLiquidity(
+      tB.approve(address(router), 2000 ether);
+      router.addLiquidity(
         address(tA), address(tB),
         1000 ether, 2000 ether,
         0, 0,
