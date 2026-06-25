@@ -5,7 +5,7 @@ import { ethers } from "ethers";
 import Nav from "../../components/Nav";
 import { useWallet } from "../../hooks/useWallet";
 import { useAMM } from "../../hooks/useAMM";
-import { ADDRESSES, TOKEN_LABELS, PAIR_ABI, TOKEN_ABI } from "../../lib/contracts";
+import { ADDRESSES, TOKEN_LABELS, PAIR_ABI, TOKEN_ABI } from "../../lib/contract";
 
 function fmt(bigint, dec = 4) {
   try {

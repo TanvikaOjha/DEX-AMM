@@ -14,7 +14,7 @@ contract Deploy is Script {
         // 1. Deploy three tokens
         TestToken tA = new TestToken("Token Alpha", "TKA");
         TestToken tB = new TestToken("Token Beta",  "TKB");
-        TestToken tC = new TestToken("Token Gamma", "TKC"); // NEW
+        TestToken tC = new TestToken("Token Gamma", "TKC"); 
 
         console.log("TKA:", address(tA));
         console.log("TKB:", address(tB));
@@ -35,19 +35,19 @@ contract Deploy is Script {
         console.log("Pair TKA/TKC:", pairAC);
 
         // 4. Seed liquidity in all three pools
-        // TKA/TKB: 1000 TKA + 2000 TKB  (price: 1 TKA = 2 TKB)
-        tA.approve(pairAB, 1000 ether); tB.approve(pairAB, 2000 ether);
-        AMMPair(pairAB).addLiquidity(1000 ether, 2000 ether, 0, 0, deployer);
+ {       // TKA/TKB: 1000 TKA + 2000 TKB  (price: 1 TKA = 2 TKB)
+        tA.approve(address(router), 1000 ether); tB.approve(address(router), 2000 ether);
+        router.addLiquidity(address(tA), address(tB), 1000 ether, 2000 ether, 0, 0, deployer, block.timestamp + 60);
 
-        // TKB/TKC: 2000 TKB + 6000 TKC  (price: 1 TKB = 3 TKC)
-        tB.approve(pairBC, 2000 ether); tC.approve(pairBC, 6000 ether);
-        AMMPair(pairBC).addLiquidity(2000 ether, 6000 ether, 0, 0, deployer);
-
+ }{       // TKB/TKC: 2000 TKB + 6000 TKC  (price: 1 TKB = 3 TKC)
+        tB.approve(address(router), 2000 ether); tC.approve(address(router), 6000 ether);
+        router.addLiquidity(address(tB), address(tC), 2000 ether, 6000 ether, 0, 0, deployer, block.timestamp + 60);
+}{
         // TKA/TKC: 1000 TKA + 6000 TKC  (price: 1 TKA = 6 TKC — consistent!)
-        tA.approve(pairAC, 1000 ether); tC.approve(pairAC, 6000 ether);
-        AMMPair(pairAC).addLiquidity(1000 ether, 6000 ether, 0, 0, deployer);
-
-        console.log("All pools seeded.");
+        tA.approve(address(router), 1000 ether); tC.approve(address(router), 6000 ether);
+        router.addLiquidity(address(tA), address(tC), 1000 ether, 6000 ether, 0, 0, deployer, block.timestamp + 60);
+    }
+        console.log("All pools sorted & seeded.");
         vm.stopBroadcast();
     }
 }

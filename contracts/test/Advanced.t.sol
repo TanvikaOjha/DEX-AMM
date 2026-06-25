@@ -96,7 +96,7 @@ contract AdvancedTest is Test {
 
         // Build the EIP-712 permit digest
         bytes32 PERMIT_TYPEHASH = keccak256(
-            "Permit(address owner, address spender, uint256 value, uint256 nonce, uint256 deadline)"
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
         );
         bytes32 structHash = keccak256(abi.encode(
                 PERMIT_TYPEHASH, alice, address(router), 10 ether, nonce, deadline));
@@ -127,7 +127,7 @@ contract AdvancedTest is Test {
         // Build same digest but sign with a DIFFERENT key (not alice's)
         uint256 wrongKey = 0xBAD;
         bytes32 PERMIT_TYPEHASH = keccak256(
-            "Permit(address owner, address spender, uint256 value, uint256 nonce, uint256 deadline)"
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
         );
         bytes32 structHash = keccak256(
             abi.encode(
@@ -158,7 +158,7 @@ contract AdvancedTest is Test {
         uint256 deadline = block.timestamp + 60;
 
         bytes32 PERMIT_TYPEHASH = keccak256(
-            "Permit(address owner, address spender, uint256 value, uint256 nonce, uint256 deadline)"
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
         );
         bytes32 structHash = keccak256(
             abi.encode(

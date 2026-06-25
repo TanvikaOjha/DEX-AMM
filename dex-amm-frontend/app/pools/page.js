@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { ethers }             from "ethers";
 import Nav                   from "../../components/Nav";
-import { ADDRESSES, PAIR_ABI, TOKEN_ABI, RPC_URL } from "../../lib/contracts";
+import { ADDRESSES, PAIR_ABI, TOKEN_ABI, RPC_URL } from "../../lib/contract";
 
 const POOL_DEFS = [
   { label:"TKA / TKB", pair:ADDRESSES.pairAB, t0:"TKA", t1:"TKB" },
