@@ -6,6 +6,7 @@ import {ethers} from "ethers";
 export function useWallet() {
     const [account, setAccount] = useState("");
     const [signer, setSigner] = useState(null);
+   
     const connect = useCallback(async() => {
         if(!window.ethereum) {
             alert("Metamask not found - please install it.");

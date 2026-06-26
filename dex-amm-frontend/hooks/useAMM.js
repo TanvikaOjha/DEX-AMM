@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
-import { ADDRESSES, PAIR_ABI, TOKEN_ABI, RPC_URL } from "../lib/contract";
+import { ADDRESSES, PAIR_ABI, TOKEN_ABI,ROUTER_ABI, ORACLE_ABI, LP_ABI, RPC_URL, getPairAddress } from "../lib/contract";
 
 export function useAMM(account) {
   const [reserves, setReserves] = useState({ r0: 0n, r1: 0n });
@@ -10,67 +10,70 @@ export function useAMM(account) {
   const [lpBalance, setLpBalance] = useState(0n);
   const [lpTotalSupply, setLpTotalSupply] = useState(0n);
   const [loaded, setLoaded] = useState(false);
+  const [twapPrice, setTwapPrice] = useState(null)
+  
+  const getPairReserves = useCallback(async (pairAddr) => {
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const pair = new ethers.Contract(pairAddr, PAIR_ABI, provider);
+    const [r0, r1, t0] = await Promise.all([pair.reserve0(), pair.reserve1(), pair.token0()]);
+    return { r0, r1, t0 };
+  }, []);
 
-  const refresh = useCallback(async () => {
+ const refresh = useCallback(async (pairAddr = ADDRESSES.pairAB) => {
     try {
       const provider = new ethers.JsonRpcProvider(RPC_URL);
-      const pair = new ethers.Contract(ADDRESSES.pair, PAIR_ABI, provider);
-
+      const pair     = new ethers.Contract(pairAddr, PAIR_ABI, provider);
+ 
       const [r0, r1, t0, lpAddr] = await Promise.all([
-        pair.reserve0(),
-        pair.reserve1(),
-        pair.token0(),
-        pair.lpToken(),
+        pair.reserve0(), pair.reserve1(), pair.token0(), pair.lpToken(),
       ]);
       setReserves({ r0, r1 });
       setToken0Addr(t0);
-
-      const lpToken = new ethers.Contract(lpAddr, TOKEN_ABI, provider);
-      const supply = await provider.call({
-        to: lpAddr,
-        data: ethers.id("totalSupply()").slice(0, 10),
-      }).catch(() => null);
-
-      if (account) {
-        const bal = await lpToken.balanceOf(account);
-        setLpBalance(bal);
+ 
+      const lpToken = new ethers.Contract(lpAddr, LP_ABI, provider);
+      const [supply, bal] = await Promise.all([
+        lpToken.totalSupply(),
+        account ? lpToken.balanceOf(account) : Promise.resolve(0n),
+      ]);
+      setLpTotalSupply(supply);
+      setLpBalance(bal);
+ 
+      // Try to get TWAP price from oracle (non-critical — may not be seeded yet)
+      if (pairAddr === ADDRESSES.pairAB && ADDRESSES.oracle !== "0xYourOracleAddress") {
+        try {
+          const oracle = new ethers.Contract(ADDRESSES.oracle, ORACLE_ABI, provider);
+          const out = await oracle.consult(ADDRESSES.tokenA, ethers.parseEther("1"));
+          setTwapPrice(out);
+        } catch { setTwapPrice(null); }
       } else {
-        setLpBalance(0n);
+        setTwapPrice(null);
       }
-
-      // totalSupply via raw call (not in our minimal TOKEN_ABI) — fallback safe parse
-      try {
-        const totalSupplyAbi = ["function totalSupply() view returns (uint256)"];
-        const lpFull = new ethers.Contract(lpAddr, totalSupplyAbi, provider);
-        setLpTotalSupply(await lpFull.totalSupply());
-      } catch {
-        setLpTotalSupply(0n);
-      }
-
+ 
       setLoaded(true);
     } catch (e) {
-      console.error("useAMM refresh failed:", e);
+      console.error("useAMM refresh:", e.message);
     }
   }, [account]);
-
+ 
   useEffect(() => {
     refresh();
-    const interval = setInterval(refresh, 12000); // light polling for "live" feel
-    return () => clearInterval(interval);
+    const id = setInterval(() => refresh(), 12000);
+    return () => clearInterval(id);
   }, [refresh]);
+   
 
   // x*y=k with 0.3% fee — mirrors the Solidity formula exactly
   function getQuote(amountInWei, tokenInAddress) {
-    if (!amountInWei || amountInWei <= 0n || !token0Addr) return 0n;
-    const isZeroForOne = tokenInAddress.toLowerCase() === token0Addr.toLowerCase();
-    const rIn = isZeroForOne ? reserves.r0 : reserves.r1;
-    const rOut = isZeroForOne ? reserves.r1 : reserves.r0;
+    const _r0 = r0 ?? reserves.r0;
+    const _r1 = r1 ?? reserves.r1;
+    const _t0 = t0 ?? token0Addr;
+    if (!amountInWei || amountInWei <= 0n || !_t0) return 0n;
+    const isZeroForOne = tokenInAddress.toLowerCase() === _t0.toLowerCase();
+    const rIn = isZeroForOne ? _r0 : _r1;
+    const rOut = isZeroForOne ? _r1 : _r0;
     if (rIn === 0n || rOut === 0n) return 0n;
-    const amountInWithFee = amountInWei * 997n;
-    const numerator = amountInWithFee * rOut;
-    const denominator = rIn * 1000n + amountInWithFee;
-    return numerator / denominator;
-  }
+const fee  = amountInWei * 997n;
+    return (fee * rOut) / (_r0 * 1000n + fee < 1n ? 1n : rIn * 1000n + fee);  }
 
   function getPriceImpactPct(amountInWei, tokenInAddress) {
     if (!amountInWei || amountInWei <= 0n || !token0Addr) return 0;
@@ -78,10 +81,8 @@ export function useAMM(account) {
     const rIn = isZeroForOne ? reserves.r0 : reserves.r1;
     if (rIn === 0n) return 0;
     // Impact approximated as amountIn / (reserveIn + amountIn) * 100
-    const num = Number(amountInWei) * 100;
-    const den = Number(rIn) + Number(amountInWei);
-    return den === 0 ? 0 : num / den;
+    return (Number(amountInWei) * 100) / (Number(rIn) + Number(amountInWei));
   }
 
-  return { reserves, token0Addr, lpBalance, lpTotalSupply, loaded, refresh, getQuote, getPriceImpactPct };
+  return { reserves, token0Addr, lpBalance, lpTotalSupply, twapPrice, loaded, refresh, getPairReserves, getQuote, getPriceImpactPct };
 }

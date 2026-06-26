@@ -4,6 +4,7 @@ import "../src/TestToken.sol";
 import "../src/AMMFactory.sol";
 import "../src/AMMPair.sol";
 import "../src/AMMRouter.sol";
+import "../src/TWAPOracle.sol";
 
 contract Deploy is Script {
     function run() external {
@@ -47,6 +48,9 @@ contract Deploy is Script {
         tA.approve(address(router), 1000 ether); tC.approve(address(router), 6000 ether);
         router.addLiquidity(address(tA), address(tC), 1000 ether, 6000 ether, 0, 0, deployer, block.timestamp + 60);
     }
+
+        TWAPOracle oracle = new TWAPOracle(pairAB, 300);
+        console.log("TWAP Oracle Deployed at:", address(oracle));
         console.log("All pools sorted & seeded.");
         vm.stopBroadcast();
     }
