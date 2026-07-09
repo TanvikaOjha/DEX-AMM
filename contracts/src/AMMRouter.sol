@@ -74,7 +74,7 @@ contract AMMRouter {
         require(amounts[amounts.length - 1] >= amountOutMin, "Slippage: insufficient output");
          
 
-        IERC20(path[0]).transferFrom(msg.sender, address(this), amounts[0]);
+        IERC20(path[0]).transferFrom(msg.sender, address(this), amounts[0]); //transfers the input token to
        
 
         // Execute the internal chained swaps
@@ -111,6 +111,8 @@ contract AMMRouter {
     }
     
     function getAmountsOut(uint256 amountIn, address[] memory path) public view returns (uint256[] memory amounts){
+        //calculates swap outputs
+        //amount[0] = input, amount[last] = output, amount[rest]=intermediate outputs
         require(path.length >= 2, "Invalid path");
         amounts = new uint256[](path.length);
         amounts[0] = amountIn;
