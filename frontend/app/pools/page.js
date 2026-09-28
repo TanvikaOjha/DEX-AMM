@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
+import { useWallet } from "../hooks/useWallet";
 import Nav from "../components/Nav";
 import { ADDRESSES, PAIR_ABI, TOKEN_ABI, RPC_URL } from "../lib/contract";
 
@@ -22,7 +23,7 @@ function fmt(b, d = 2) {
 
 export default function PoolsPage() {
   const [pools, setPools] = useState([]);
-
+  const {account, connect} = useWallet();
   useEffect(() => {
     (async () => {
       const provider = new ethers.JsonRpcProvider(RPC_URL);
