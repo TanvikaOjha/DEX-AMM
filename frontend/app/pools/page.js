@@ -42,7 +42,7 @@ export default function PoolsPage() {
 
   return (
     <div className="text-gray-100 min-h-screen bg-[radial-gradient(circle_at_50%_-20%,#1a102f_0%,#09050f_60%,#030205_100%)] font-sans antialiased">
-      <Nav />
+      <Nav account={account} onConnect={connect}/>
       
       {/* Hero Strip Header */}
       <div className="max-w-5xl mx-auto px-6 pt-16 pb-8 text-center space-y-4">
